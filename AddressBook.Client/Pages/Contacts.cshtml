@@ -1,0 +1,86 @@
+﻿@using Microsoft.AspNetCore.Blazor.Browser.Http
+@using AddressBook.Shared
+@page "/contacts"
+@inject HttpClient httpClient
+
+<h1>Contacts</h1>
+
+<NavLink class="nav-link btn btn-default" href="newcontact">Add New Contact</NavLink>
+
+<hr />
+
+@if (_contacts.Any())
+{
+    <div class="card-deck">
+        @foreach (var contact in _contacts)
+        {
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">@contact.Name</h5>
+                    <p class="card-text">
+                        <strong>Phone Number</strong> @contact.PhoneNumber
+                    </p>
+                    <p class="card-text">
+                        <strong>Email</strong> @contact.Email
+                    </p>
+                    <button class="btn btn-danger" onclick=@(() => DeleteContact(contact))>Delete Contact</button>
+                </div>
+            </div>
+        }
+    </div>
+}
+else
+{
+    <p>No Contacts Found</p>
+}
+
+@functions {
+
+    private List<Contact> _contacts = new List<Contact>();
+
+    protected override async Task OnInitAsync() => await GetContacts();
+
+    private async Task GetContacts()
+    {
+        _contacts = await httpClient.GetJsonAsync<List<Contact>>("api/contacts");
+        //await GetContactsWithCustomisedRequest();
+        //await GetContactsWithCustomCredentials();
+    }
+
+    private async Task GetContactsWithCustomisedRequest()
+    {
+        var httpRequestMessage = new HttpRequestMessage()
+        {
+            Method = new HttpMethod("GET"),
+            RequestUri = new Uri("http://localhost:49815/api/contacts"),
+        };
+
+        // Custom header example
+        httpRequestMessage.Headers.Add("foo-header", "bar-value");
+
+        // Example of passing options to the browsers fetch API
+        httpRequestMessage.Properties[BrowserHttpMessageHandler.FetchArgs] = new
+        {
+            referrer = "foo-bar",
+            credentials = "include"
+        };
+
+
+        var response = await httpClient.SendAsync(httpRequestMessage);
+        var content = await response.Content.ReadAsStringAsync();
+        _contacts = Json.Deserialize<List<Contact>>(content);
+    }
+
+    private async Task GetContactsWithCustomCredentials()
+    {
+        BrowserHttpMessageHandler.DefaultCredentials = FetchCredentialsOption.Include;
+        _contacts = await httpClient.GetJsonAsync<List<Contact>>("api/contacts");
+        BrowserHttpMessageHandler.DefaultCredentials = FetchCredentialsOption.SameOrigin;
+    }
+
+    private async Task DeleteContact(Contact contact)
+    {
+        await httpClient.DeleteAsync($"api/contacts/{contact.Name}");
+        await GetContacts();
+    }
+}
